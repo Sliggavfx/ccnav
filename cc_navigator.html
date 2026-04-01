@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CC Navigator: Compare Presets vs. Original</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0a0a0a;
+    --surface: #141414;
+    --surface2: #1a1a1a;
+    --border: #2a2a2a;
+    --text: #f0ede6;
+    --muted: #888;
+    --font: 'IBM Plex Sans', sans-serif;
+    --mono: 'IBM Plex Mono', monospace;
+  }
+
+  /* RGB Animations */
+  @keyframes rgb-text {
+    0% { color: #ff3366; }
+    25% { color: #33ccff; }
+    50% { color: #66ff66; }
+    75% { color: #ffcc00; }
+    100% { color: #ff3366; }
+  }
+  @keyframes rgb-bg {
+    0% { background-color: #ff3366; }
+    25% { background-color: #33ccff; }
+    50% { background-color: #66ff66; }
+    75% { background-color: #ffcc00; }
+    100% { background-color: #ff3366; }
+  }
+  @keyframes rgb-border {
+    0% { border-color: #ff3366; }
+    25% { border-color: #33ccff; }
+    50% { border-color: #66ff66; }
+    75% { border-color: #ffcc00; }
+    100% { border-color: #ff3366; }
+  }
+  @keyframes rgb-shadow {
+    0% { box-shadow: 0 0 10px #ff3366; }
+    25% { box-shadow: 0 0 10px #33ccff; }
+    50% { box-shadow: 0 0 10px #66ff66; }
+    75% { box-shadow: 0 0 10px #ffcc00; }
+    100% { box-shadow: 0 0 10px #ff3366; }
+  }
+
+  body {
+    background-color: var(--bg);
+    /* Subtle tech grid pattern */
+    background-image: 
+      linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    background-size: 24px 24px;
+    color: var(--text);
+    font-family: var(--font);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 28px;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    background: rgba(10, 10, 10, 0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    z-index: 100;
+  }
+
+  .logo {
+    font-family: var(--mono);
+    font-size: 14px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    animation: rgb-text 6s linear infinite;
+    font-weight: 500;
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .count-badge {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+    background: var(--surface);
+    padding: 4px 10px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+  }
+
+  .search-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 14px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    width: 220px;
+    outline: none;
+    transition: all 0.2s;
+  }
+
+  .search-box:focus { border-color: #fff; box-shadow: 0 0 8px rgba(255,255,255,0.1); }
+  .search-box::placeholder { color: var(--muted); }
+
+  .drop-zone {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    padding: 60px 20px;
+    text-align: center;
+  }
+
+  .drop-icon {
+    width: 72px;
+    height: 72px;
+    border: 1.5px solid var(--border);
+    background: var(--surface);
+    border-radius: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    color: var(--muted);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  }
+
+  .drop-title {
+    font-size: 24px;
+    font-weight: 400;
+    letter-spacing: -0.02em;
+    margin-bottom: 8px;
+  }
+
+  .drop-sub {
+    font-size: 13px;
+    color: var(--muted);
+    font-family: var(--mono);
+    line-height: 1.7;
+  }
+
+  .drop-btn {
+    animation: rgb-bg 6s linear infinite;
+    color: #0a0a0a;
+    border: none;
+    border-radius: 6px;
+    padding: 10px 24px;
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    transition: transform 0.1s, opacity 0.15s;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  }
+
+  .drop-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+  .drop-btn:active { transform: translateY(1px); }
+  
+  .btn-outline {
+    background: var(--surface) !important;
+    color: var(--text) !important;
+    border: 1px solid var(--border);
+    animation: none;
+  }
+  .btn-outline:hover { border-color: #fff; }
+
+  .drop-area-border {
+    border: 1.5px dashed var(--border);
+    background: rgba(20, 20, 20, 0.5);
+    backdrop-filter: blur(8px);
+    border-radius: 16px;
+    padding: 56px 48px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    transition: all 0.2s;
+    max-width: 500px;
+    width: 100%;
+  }
+
+  .drop-area-border.dragover { 
+    border-color: #fff; 
+    background: rgba(30, 30, 30, 0.8);
+    transform: scale(1.02);
+  }
+
+  #main-content {
+    display: none;
+    flex-direction: column;
+    flex: 1;
+  }
+
+  .toolbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 28px;
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+    background: var(--bg);
+  }
+
+  .toolbar-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-right: 4px;
+  }
+
+  .sort-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 6px 12px;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .sort-btn:hover { border-color: #fff; color: #fff; }
+  .sort-btn.active { 
+    background: rgba(255,255,255,0.05);
+    animation: rgb-text 6s linear infinite, rgb-border 6s linear infinite; 
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+    padding: 24px;
+    flex: 1;
+  }
+
+  .cc-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    aspect-ratio: 1; /* Back to perfect squares! */
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  }
+
+  .cc-card:hover { 
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+    border-color: transparent;
+    animation: rgb-border 6s linear infinite; 
+  }
+
+  .cc-card .label {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 12px 14px;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.03em;
+    background: linear-gradient(transparent, rgba(0,0,0,0.95));
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    pointer-events: none;
+  }
+
+  .cc-card .index-num {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    font-family: var(--mono);
+    font-size: 10px;
+    background: rgba(0,0,0,0.6);
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: rgba(255,255,255,0.7);
+    pointer-events: none;
+  }
+
+  .cc-card canvas, .cc-card img {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
+  }
+
+  /* MODAL */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.95);
+    backdrop-filter: blur(10px);
+    z-index: 1000;
+    flex-direction: column;
+  }
+
+  .modal-overlay.open { display: flex; }
+
+  .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 28px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    background: var(--bg);
+  }
+
+  .modal-title {
+    font-family: var(--mono);
+    font-size: 14px;
+    letter-spacing: 0.05em;
+    animation: rgb-text 6s linear infinite;
+  }
+
+  .modal-nav {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .nav-btn {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--text);
+    font-size: 16px;
+    transition: all 0.15s;
+  }
+
+  .nav-btn:hover { border-color: #fff; background: rgba(255,255,255,0.05); }
+
+  .close-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 16px;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.15s;
+    margin-left: 8px;
+  }
+
+  .close-btn:hover { border-color: #ff3366; color: #ff3366; }
+
+  .modal-body {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* HORIZONTAL SLIDER COMPARISON */
+  .compare-wrap {
+    position: relative;
+    width: min(1200px, min(calc(100vw - 48px), calc(100vh - 160px)));
+    height: min(800px, min(calc(100vw - 48px), calc(100vh - 160px)));
+    overflow: hidden;
+    border-radius: 8px;
+    user-select: none;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+    border: 1px solid var(--border);
+    background: #000;
+  }
+
+  .compare-wrap img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+  }
+
+  .compare-wrap .img-original { z-index: 1; }
+  .compare-wrap .img-cc { z-index: 2; clip-path: polygon(50% 0, 100% 0, 100% 100%, 50% 100%); }
+
+  /* Upgraded RGB Divider Line */
+  .divider-line {
+    position: absolute;
+    z-index: 10;
+    pointer-events: none;
+    width: 2px;
+    height: 100%;
+    left: 50%;
+    top: 0;
+    transform: translateX(-50%);
+    animation: rgb-bg 6s linear infinite, rgb-shadow 6s linear infinite;
+  }
+
+  /* Upgraded RGB Handle */
+  .drag-handle {
+    position: absolute;
+    z-index: 11;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--surface);
+    border: 2px solid transparent;
+    cursor: col-resize;
+    transform: translate(-50%, -50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    top: 50%;
+    left: 50%;
+    animation: rgb-border 6s linear infinite;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.6);
+  }
+
+  .drag-handle:active { cursor: grabbing; transform: translate(-50%, -50%) scale(0.95); }
+  
+  .drag-handle svg { pointer-events: none; }
+  .drag-handle svg path { stroke: #fff; }
+
+  .corner-label {
+    position: absolute;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    pointer-events: none;
+    z-index: 5;
+    padding: 6px 10px;
+    border-radius: 4px;
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+
+  .corner-label.orig {
+    top: 16px;
+    left: 16px;
+    background: rgba(0,0,0,0.7);
+    color: rgba(255,255,255,0.8);
+    backdrop-filter: blur(4px);
+  }
+
+  .corner-label.cc {
+    top: 16px;
+    right: 16px;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(4px);
+    animation: rgb-text 6s linear infinite, rgb-border 6s linear infinite;
+  }
+
+  .modal-footer {
+    padding: 14px 28px;
+    background: var(--bg);
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .footer-info {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text);
+  }
+
+  .footer-hint {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+  }
+
+  .no-results {
+    grid-column: 1/-1;
+    text-align: center;
+    padding: 80px 20px;
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  #file-input-zip, #file-input-orig { display: none; }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="logo">// CC Navigator</span>
+  <div class="header-right">
+    <span class="count-badge" id="count-display"></span>
+    <input type="text" class="search-box" placeholder="search preset name..." id="search-input">
+  </div>
+</header>
+
+<div class="drop-zone" id="drop-screen">
+  <div class="drop-area-border" id="drop-area">
+    <div class="drop-icon">▤</div>
+    <div>
+      <div class="drop-title">Drop your exports here</div>
+      <div class="drop-sub" style="margin-top: 8px;">
+        Upload a ZIP containing your color-corrected frames<br>
+        + the original frame (named <code>original.*</code>)
+      </div>
+    </div>
+    <div style="display:flex; gap:12px; flex-wrap:wrap; justify-content:center;">
+      <button class="drop-btn" onclick="document.getElementById('file-input-zip').click()">Choose ZIP</button>
+      <button class="drop-btn btn-outline" onclick="document.getElementById('file-input-orig').click()">+ Add Original</button>
+    </div>
+    <div class="footer-hint" style="margin-top:8px;">
+      Drag & drop a ZIP · or select individual image files
+    </div>
+  </div>
+</div>
+
+<input type="file" id="file-input-zip" accept=".zip">
+<input type="file" id="file-input-orig" accept="image/*">
+
+<div id="main-content">
+  <div class="toolbar">
+    <span class="toolbar-label">Sort</span>
+    <button class="sort-btn active" data-sort="name">A → Z</button>
+    <button class="sort-btn" data-sort="index">Original order</button>
+    
+    <div style="margin-left:auto; display:flex; align-items:center; gap:8px;">
+      <button class="drop-btn btn-outline" style="font-size:10px; padding:6px 14px;" onclick="document.getElementById('file-input-orig').click()">+ Add Original</button>
+      <button class="drop-btn" style="font-size:10px; padding:6px 14px;" onclick="document.getElementById('file-input-zip').click()">Load new ZIP</button>
+    </div>
+  </div>
+  <div class="grid" id="card-grid"></div>
+</div>
+
+<div class="modal-overlay" id="modal">
+  <div class="modal-header">
+    <span class="modal-title" id="modal-name">preset_name</span>
+    <div class="modal-nav">
+      <button class="nav-btn" id="prev-btn" title="Previous (←)">←</button>
+      <span style="font-family:var(--mono);font-size:11px;color:var(--muted);" id="modal-index">1 / 100</span>
+      <button class="nav-btn" id="next-btn" title="Next (→)">→</button>
+      <button class="close-btn" id="close-btn">✕ close</button>
+    </div>
+  </div>
+
+  <div class="modal-body">
+    <div class="compare-wrap" id="compare-wrap">
+      <img class="img-original" id="img-original" src="" alt="original">
+      <img class="img-cc" id="img-cc" src="" alt="cc">
+      <div class="divider-line" id="divider-line"></div>
+      <div class="drag-handle" id="drag-handle">
+        <svg width="18" height="18" viewBox="0 0 16 16" fill="none">
+          <path d="M5 8H11M5 8L8 5M5 8L8 11M11 8L8 5M11 8L8 11" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <span class="corner-label orig">ORIGINAL</span>
+      <span class="corner-label cc" id="cc-label">CC</span>
+    </div>
+  </div>
+
+  <div class="modal-footer">
+    <span class="footer-info" id="modal-footer-name"></span>
+    <span class="footer-hint">drag handle left/right · ← → keys to navigate</span>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>
+const IMAGE_EXTS = ['png','jpg','jpeg','webp','tiff','tif','bmp'];
+
+let originalURL = null;
+let presets = [];
+let filteredPresets = [];
+let currentIndex = 0;
+let sortMode = 'name';
+
+const dropArea = document.getElementById('drop-area');
+
+['dragenter','dragover'].forEach(e => dropArea.addEventListener(e, ev => {
+  ev.preventDefault(); dropArea.classList.add('dragover');
+}));
+['dragleave','drop'].forEach(e => dropArea.addEventListener(e, ev => {
+  ev.preventDefault(); dropArea.classList.remove('dragover');
+}));
+
+dropArea.addEventListener('drop', ev => {
+  const files = [...ev.dataTransfer.files];
+  const zip = files.find(f => f.name.endsWith('.zip'));
+  const img = files.find(f => IMAGE_EXTS.some(x => f.name.toLowerCase().endsWith(x)));
+  if (zip) handleZip(zip);
+  if (img && !zip) setOriginal(img);
+});
+
+document.getElementById('file-input-zip').addEventListener('change', e => {
+  if (e.target.files[0]) handleZip(e.target.files[0]);
+});
+document.getElementById('file-input-orig').addEventListener('change', e => {
+  if (e.target.files[0]) setOriginal(e.target.files[0]);
+});
+
+function setOriginal(file) {
+  originalURL = URL.createObjectURL(file);
+  document.getElementById('img-original').src = originalURL;
+  renderGrid();
+}
+
+async function handleZip(file) {
+  const zip = await JSZip.loadAsync(file);
+  const entries = Object.values(zip.files).filter(f => !f.dir);
+
+  presets = [];
+  let origEntry = null;
+
+  for (const entry of entries) {
+    const lowerName = entry.name.split('/').pop().toLowerCase();
+    
+    if (lowerName.startsWith('._') || entry.name.includes('__macosx')) continue;
+
+    const ext = lowerName.split('.').pop();
+    if (!IMAGE_EXTS.includes(ext)) continue;
+
+    const baseName = lowerName.replace(/\.[^.]+$/, '');
+    if (baseName === 'original' || baseName === 'orig' || baseName === 'base') {
+      origEntry = entry;
+    } else {
+      const blob = await entry.async('blob');
+      const url = URL.createObjectURL(blob);
+      const displayName = entry.name.split('/').pop().replace(/\.[^.]+$/, '');
+      presets.push({ name: displayName, url });
+    }
+  }
+
+  if (origEntry) {
+    const blob = await origEntry.async('blob');
+    originalURL = URL.createObjectURL(blob);
+  }
+
+  sortPresets();
+  document.getElementById('drop-screen').style.display = 'none';
+  document.getElementById('main-content').style.display = 'flex';
+  renderGrid();
+}
+
+function sortPresets() {
+  if (sortMode === 'name') {
+    presets.sort((a, b) => a.name.localeCompare(b.name));
+  }
+}
+
+function applySearch(query) {
+  const q = query.toLowerCase().trim();
+  filteredPresets = q ? presets.filter(p => p.name.toLowerCase().includes(q)) : [...presets];
+}
+
+function renderGrid() {
+  applySearch(document.getElementById('search-input').value);
+  const grid = document.getElementById('card-grid');
+  grid.innerHTML = '';
+
+  document.getElementById('count-display').textContent = `${presets.length} presets`;
+
+  if (filteredPresets.length === 0) {
+    grid.innerHTML = '<div class="no-results">no presets match your search</div>';
+    return;
+  }
+
+  filteredPresets.forEach((preset, i) => {
+    const card = document.createElement('div');
+    card.className = 'cc-card';
+    card.setAttribute('data-index', i);
+
+    const img = document.createElement('img');
+    img.src = preset.url;
+    img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
+    card.appendChild(img);
+
+    const label = document.createElement('div');
+    label.className = 'label';
+    label.textContent = preset.name;
+    card.appendChild(label);
+
+    const num = document.createElement('div');
+    num.className = 'index-num';
+    num.textContent = String(i + 1).padStart(3, '0');
+    card.appendChild(num);
+
+    card.addEventListener('click', () => openModal(i));
+    grid.appendChild(card);
+  });
+}
+
+document.getElementById('search-input').addEventListener('input', e => renderGrid());
+
+document.querySelectorAll('.sort-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    sortMode = btn.dataset.sort;
+    sortPresets();
+    renderGrid();
+  });
+});
+
+function openModal(index) {
+  currentIndex = index;
+  sliderT = 0.5; 
+  updateModal();
+  document.getElementById('modal').classList.add('open');
+}
+
+function updateModal() {
+  const preset = filteredPresets[currentIndex];
+  document.getElementById('modal-name').textContent = preset.name;
+  document.getElementById('modal-footer-name').textContent = preset.name + '.ffx';
+  document.getElementById('modal-index').textContent = `${currentIndex + 1} / ${filteredPresets.length}`;
+  document.getElementById('img-cc').src = preset.url;
+  document.getElementById('img-original').src = originalURL || '';
+  document.getElementById('cc-label').textContent = preset.name;
+  
+  applySlider(); 
+}
+
+document.getElementById('close-btn').addEventListener('click', () => {
+  document.getElementById('modal').classList.remove('open');
+});
+
+document.getElementById('prev-btn').addEventListener('click', () => {
+  if (currentIndex > 0) { currentIndex--; updateModal(); }
+});
+
+document.getElementById('next-btn').addEventListener('click', () => {
+  if (currentIndex < filteredPresets.length - 1) { currentIndex++; updateModal(); }
+});
+
+document.addEventListener('keydown', e => {
+  if (!document.getElementById('modal').classList.contains('open')) return;
+  if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+    if (currentIndex < filteredPresets.length - 1) { currentIndex++; updateModal(); }
+  } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+    if (currentIndex > 0) { currentIndex--; updateModal(); }
+  } else if (e.key === 'Escape') {
+    document.getElementById('modal').classList.remove('open');
+  }
+});
+
+let sliderT = 0.5; 
+
+const handle = document.getElementById('drag-handle');
+const wrap = document.getElementById('compare-wrap');
+const imgCC = document.getElementById('img-cc');
+const line = document.getElementById('divider-line');
+
+function applySlider() {
+  const pct = (sliderT * 100).toFixed(2) + '%';
+  handle.style.left = pct;
+  line.style.left = pct;
+  imgCC.style.clipPath = `polygon(${pct} 0, 100% 0, 100% 100%, ${pct} 100%)`;
+}
+
+let dragging = false;
+
+function updateSliderFromEvent(e) {
+  const rect = wrap.getBoundingClientRect();
+  let clientX;
+  if (e.touches && e.touches.length > 0) {
+    clientX = e.touches[0].clientX;
+  } else {
+    clientX = e.clientX;
+  }
+  
+  sliderT = (clientX - rect.left) / rect.width;
+  sliderT = Math.max(0, Math.min(1, sliderT));
+  applySlider();
+}
+
+handle.addEventListener('mousedown', e => {
+  dragging = true;
+  e.preventDefault();
+});
+
+handle.addEventListener('touchstart', e => {
+  dragging = true;
+  e.preventDefault();
+}, { passive: false });
+
+document.addEventListener('mousemove', e => {
+  if (!dragging) return;
+  updateSliderFromEvent(e);
+});
+
+document.addEventListener('touchmove', e => {
+  if (!dragging) return;
+  updateSliderFromEvent(e);
+}, { passive: false });
+
+document.addEventListener('mouseup', () => { dragging = false; });
+document.addEventListener('touchend', () => { dragging = false; });
+
+window.addEventListener('resize', () => { if (document.getElementById('modal').classList.contains('open')) applySlider(); });
+</script>
+</body>
+</html>
