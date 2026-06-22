@@ -517,8 +517,6 @@
     font-size: 13px;
     color: var(--muted);
   }
-
-  #file-input-zip, #file-input-orig { display: none; }
 </style>
 </head>
 <body>
@@ -532,27 +530,17 @@
 </header>
 
 <div class="drop-zone" id="drop-screen">
-  <div class="drop-area-border" id="drop-area">
-    <div class="drop-icon">▤</div>
+  <div class="drop-area-border" id="drop-area" style="border-style:solid;">
+    <div class="drop-icon" id="status-icon">▤</div>
     <div>
-      <div class="drop-title">Drop your exports here</div>
-      <div class="drop-sub" style="margin-top: 8px;">
-        Upload a ZIP containing your color-corrected frames<br>
-        + the original frame (named <code>original.*</code>)
+      <div class="drop-title" id="status-title">Loading presets…</div>
+      <div class="drop-sub" style="margin-top: 8px;" id="status-sub">
+        Reading <code id="images-dir-label">/images</code> from the repo
       </div>
     </div>
-    <div style="display:flex; gap:12px; flex-wrap:wrap; justify-content:center;">
-      <button class="drop-btn" onclick="document.getElementById('file-input-zip').click()">Choose ZIP</button>
-      <button class="drop-btn btn-outline" onclick="document.getElementById('file-input-orig').click()">+ Add Original</button>
-    </div>
-    <div class="footer-hint" style="margin-top:8px;">
-      Drag & drop a ZIP · or select individual image files
-    </div>
+    <button class="drop-btn btn-outline" id="retry-btn" style="display:none;" onclick="loadLibrary()">Retry</button>
   </div>
 </div>
-
-<input type="file" id="file-input-zip" accept=".zip">
-<input type="file" id="file-input-orig" accept="image/*">
 
 <div id="main-content">
   <div class="toolbar">
@@ -561,8 +549,7 @@
     <button class="sort-btn" data-sort="index">Original order</button>
     
     <div style="margin-left:auto; display:flex; align-items:center; gap:8px;">
-      <button class="drop-btn btn-outline" style="font-size:10px; padding:6px 14px;" onclick="document.getElementById('file-input-orig').click()">+ Add Original</button>
-      <button class="drop-btn" style="font-size:10px; padding:6px 14px;" onclick="document.getElementById('file-input-zip').click()">Load new ZIP</button>
+      <button class="drop-btn btn-outline" style="font-size:10px; padding:6px 14px;" onclick="loadLibrary()">↻ Refresh</button>
     </div>
   </div>
   <div class="grid" id="card-grid"></div>
@@ -600,9 +587,18 @@
   </div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script>
 const IMAGE_EXTS = ['png','jpg','jpeg','webp','tiff','tif','bmp'];
+
+// ---- CONFIGURE THIS ----
+// Path (relative to this page) where your images live in the repo.
+const IMAGES_DIR = 'images';
+// Your GitHub repo, used to auto-list the contents of IMAGES_DIR via the GitHub API.
+// Leave GITHUB_OWNER blank to skip the API and use manifest.json (in IMAGES_DIR) instead.
+const GITHUB_OWNER = 'Sliggavfx';   // e.g. 'yourusername'
+const GITHUB_REPO  = 'ccnav';   // e.g. 'cc-navigator'
+const GITHUB_BRANCH = 'main';
+// -------------------------
 
 let originalURL = null;
 let presets = [];
@@ -610,65 +606,89 @@ let filteredPresets = [];
 let currentIndex = 0;
 let sortMode = 'name';
 
-const dropArea = document.getElementById('drop-area');
+document.getElementById('images-dir-label').textContent = '/' + IMAGES_DIR;
 
-['dragenter','dragover'].forEach(e => dropArea.addEventListener(e, ev => {
-  ev.preventDefault(); dropArea.classList.add('dragover');
-}));
-['dragleave','drop'].forEach(e => dropArea.addEventListener(e, ev => {
-  ev.preventDefault(); dropArea.classList.remove('dragover');
-}));
-
-dropArea.addEventListener('drop', ev => {
-  const files = [...ev.dataTransfer.files];
-  const zip = files.find(f => f.name.endsWith('.zip'));
-  const img = files.find(f => IMAGE_EXTS.some(x => f.name.toLowerCase().endsWith(x)));
-  if (zip) handleZip(zip);
-  if (img && !zip) setOriginal(img);
-});
-
-document.getElementById('file-input-zip').addEventListener('change', e => {
-  if (e.target.files[0]) handleZip(e.target.files[0]);
-});
-document.getElementById('file-input-orig').addEventListener('change', e => {
-  if (e.target.files[0]) setOriginal(e.target.files[0]);
-});
-
-function setOriginal(file) {
-  originalURL = URL.createObjectURL(file);
-  document.getElementById('img-original').src = originalURL;
-  renderGrid();
+function setStatus(title, sub, showRetry) {
+  document.getElementById('status-title').textContent = title;
+  document.getElementById('status-sub').innerHTML = sub;
+  document.getElementById('retry-btn').style.display = showRetry ? 'inline-block' : 'none';
 }
 
-async function handleZip(file) {
-  const zip = await JSZip.loadAsync(file);
-  const entries = Object.values(zip.files).filter(f => !f.dir);
+async function listFilesFromGitHubAPI() {
+  const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${IMAGES_DIR}?ref=${GITHUB_BRANCH}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`GitHub API returned ${res.status}`);
+  const data = await res.json();
+  if (!Array.isArray(data)) throw new Error('Unexpected GitHub API response');
+  return data
+    .filter(f => f.type === 'file')
+    .map(f => f.name);
+}
 
-  presets = [];
-  let origEntry = null;
+async function listFilesFromManifest() {
+  const res = await fetch(`${IMAGES_DIR}/manifest.json`, { cache: 'no-store' });
+  if (!res.ok) throw new Error(`manifest.json returned ${res.status}`);
+  const data = await res.json();
+  if (!Array.isArray(data)) throw new Error('manifest.json must be an array of filenames');
+  return data;
+}
 
-  for (const entry of entries) {
-    const lowerName = entry.name.split('/').pop().toLowerCase();
-    
-    if (lowerName.startsWith('._') || entry.name.includes('__macosx')) continue;
+async function loadLibrary() {
+  setStatus('Loading presets…', `Reading <code>/${IMAGES_DIR}</code> from the repo`, false);
+  document.getElementById('drop-screen').style.display = 'flex';
+  document.getElementById('main-content').style.display = 'none';
 
-    const ext = lowerName.split('.').pop();
-    if (!IMAGE_EXTS.includes(ext)) continue;
-
-    const baseName = lowerName.replace(/\.[^.]+$/, '');
-    if (baseName === 'original' || baseName === 'orig' || baseName === 'base') {
-      origEntry = entry;
+  let filenames = [];
+  try {
+    if (GITHUB_OWNER && GITHUB_REPO) {
+      filenames = await listFilesFromGitHubAPI();
     } else {
-      const blob = await entry.async('blob');
-      const url = URL.createObjectURL(blob);
-      const displayName = entry.name.split('/').pop().replace(/\.[^.]+$/, '');
-      presets.push({ name: displayName, url });
+      filenames = await listFilesFromManifest();
+    }
+  } catch (apiErr) {
+    try {
+      filenames = await listFilesFromManifest();
+    } catch (manifestErr) {
+      setStatus(
+        'Could not load images',
+        `Add a <code>manifest.json</code> (array of filenames) inside <code>/${IMAGES_DIR}</code>, or set GITHUB_OWNER / GITHUB_REPO at the top of the script.<br><br>${apiErr.message}`,
+        true
+      );
+      return;
     }
   }
 
-  if (origEntry) {
-    const blob = await origEntry.async('blob');
-    originalURL = URL.createObjectURL(blob);
+  presets = [];
+  originalURL = null;
+
+  filenames.forEach(name => {
+    const lowerName = name.toLowerCase();
+    if (lowerName.startsWith('._') || lowerName === 'manifest.json') return;
+    const ext = lowerName.split('.').pop();
+    if (!IMAGE_EXTS.includes(ext)) return;
+
+    const baseName = lowerName.replace(/\.[^.]+$/, '');
+    const fileUrl = `${IMAGES_DIR}/${encodeURIComponent(name)}`;
+
+    if (baseName === 'original' || baseName === 'orig' || baseName === 'base') {
+      originalURL = fileUrl;
+    } else {
+      const displayName = name.replace(/\.[^.]+$/, '');
+      presets.push({ name: displayName, url: fileUrl });
+    }
+  });
+
+  if (presets.length === 0) {
+    setStatus(
+      'No presets found',
+      `<code>/${IMAGES_DIR}</code> has no recognized image files. Add your color-corrected frames there, plus one named <code>original.*</code> for the base frame.`,
+      true
+    );
+    return;
+  }
+
+  if (originalURL) {
+    document.getElementById('img-original').src = originalURL;
   }
 
   sortPresets();
@@ -833,6 +853,8 @@ document.addEventListener('mouseup', () => { dragging = false; });
 document.addEventListener('touchend', () => { dragging = false; });
 
 window.addEventListener('resize', () => { if (document.getElementById('modal').classList.contains('open')) applySlider(); });
+
+loadLibrary();
 </script>
 </body>
 </html>
